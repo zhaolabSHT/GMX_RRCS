@@ -24,7 +24,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from utilities import (
     log_error, log_warning, timing_decorator,
     InputFileError, ParameterWrongError,
-    ResidueIndexError, # compute_frame_rrcs
+    ResidueIndexError, print_nstep_time,
 )
 from constants import (
     THREE_TO_ONE_LETTER, MAIN_CHAINS_ATOMS, 
@@ -70,8 +70,10 @@ class ConfigParser:
         self.parser.add_argument('--filter_threshold', type=float, default=3.0,
                                  help='Choose whether to output the high-scoring results that have been filtered, default is 3.0.')
         self.parser.add_argument('--num_processes', type=int, default=None,
-                             help="Number of processes for parallel execution. "
+                             help="Number of processes for parallel execution."
                                   "If None, use all available CPU cores. Default is None.")
+        self.parser.add_argument('--print_freq', type=int, default=1000,
+                                 help="Print the elapsed time every N frames, default is 1000 frames.")
 
 
     def parse_arguments(self) -> Dict[str, Union[float, str, bool, int]]:
@@ -820,22 +822,32 @@ def analyze_contacts(basic_settings, member_first, member_second):
     for frame_index in range(begin_time_index, end_time_index+1, frequency_step_index):
         args.append((frame_index, info_first, info_second, basic_settings, md_traj))
 
-    # Use the process pool executor for parallel processing
     n_cpus = basic_settings['num_processes']
-    with ProcessPoolExecutor(max_workers=n_cpus) as executor:
-        futures = [executor.submit(analyze_frame, *arg) for arg in args]
+    if (n_cpus > 1) or (n_cpus == None):
+        # Use the process pool executor for parallel processing
+        with ProcessPoolExecutor(max_workers=n_cpus) as executor:
+            futures = [executor.submit(analyze_frame, *arg) for arg in args]
 
-        # Wait for all tasks to complete
-        wait(futures, return_when=ALL_COMPLETED)
+            # Wait for all tasks to complete
+            wait(futures, return_when=ALL_COMPLETED)
 
-        # Iterate through the completed tasks, updating the contact information of all frames
-        for future in as_completed(futures):
-            frame_count, frame_rrcs = future.result()
-            all_frame_rrcs[frame_count] = frame_rrcs
-            # Log the progress every 50,000 frames
-            if frame_count % 50000 == 0:
-                elapsed = timeit.default_timer() - global_start
-                logging.info(f"Calculated to frame {frame_count}, took {elapsed:.2f} seconds")
+            # Iterate through the completed tasks, updating the contact information of all frames
+            for future in as_completed(futures):
+                frame_count, frame_rrcs = future.result()
+                all_frame_rrcs[frame_count] = frame_rrcs
+                print_nstep_time(frame_count, global_start, basic_settings['print_freq'])
+    elif n_cpus <= 1:
+        # Use serial processing when the number of CPUs is less than 1
+        for frame_index in range(begin_time_index, end_time_index+1, frequency_step_index):
+            # Analyze a single frame
+            frame_count, frame_rrcs = analyze_frame(
+                frame_index, 
+                info_first, 
+                info_second, 
+                basic_settings, 
+                md_traj)
+            # Prints the elapsed time at specified calculation steps.
+            print_nstep_time(frame_count, global_start, basic_settings['print_freq'])
     return all_frame_rrcs
 
 

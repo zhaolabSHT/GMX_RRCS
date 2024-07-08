@@ -55,6 +55,26 @@ def timing_decorator(func):
     return wrapper
 
 
+def print_nstep_time(n_steps, initial_time, step=5000):
+    """
+    Prints the elapsed time at specified calculation steps.
+
+    This function is designed to be called at regular intervals during a lengthy calculation process, to log the current
+    calculation progress and the time taken. It helps in understanding the computational efficiency and estimating the
+    remaining time.
+
+    Parameters:
+    - n_steps: int, the current step number of the calculation process.
+    - initial_time: float, the start time of the calculation process, usually obtained by calling timeit.default_timer().
+    - step: int, the frequency of logging the time, i.e., the function is called to log the time every step steps.
+    """
+    # Log the progress every {n_steps} frames
+    if n_steps % step == 0:
+        # Calculate the elapsed time since the start of the calculation
+        elapsed = timeit.default_timer() - initial_time
+        logging.info(f"Calculated to frame {n_steps}, took {elapsed:.2f} seconds")
+
+
 class InputFileError(FileNotFoundError):
     pass
 

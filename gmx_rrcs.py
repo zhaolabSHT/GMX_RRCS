@@ -412,8 +412,6 @@ class ResidueContactAnalyzer:
         end_time_index = int(self.basic_settings['end_time'] / self.basic_settings['time_resolution_min'])
         frequency_step_index = int(self.basic_settings['freq_step'] / self.basic_settings['time_resolution_min'])
 
-        group_first = defaultdict(dict)
-        group_second = defaultdict(dict)
         for frame_step in md_traj.trajectory[begin_time_index:end_time_index+1:frequency_step_index]:
             frame_count = frame_step.frame + 1
             if frame_count % 50000 == 0:
