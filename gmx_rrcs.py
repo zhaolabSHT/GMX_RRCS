@@ -556,297 +556,307 @@ class DataVisualizer:
         self.write_output()
 
 
-def get_residue_name(md_traj, index_i, chain_ix):
-    """
-    Get residue names from the universe.
-    """
-    atom = list(md_traj.select_atoms(f"resid {index_i} and not name H* and segindex {chain_ix}").ids - 1)[0]
-    res_name = THREE_TO_ONE_LETTER.get(md_traj.atoms[atom].resname, 'X')
-    return res_name
+class RRCSAnalyzer:
+    def __init__(self):
+        # self.basic_settings = basic_settings
+        pass
+
+    def get_residue_name(self, md_traj, index_i, chain_ix):
+        """
+        Get residue names from the universe.
+        """
+        atom = list(md_traj.select_atoms(f"resid {index_i} and not name H* and segindex {chain_ix}").ids - 1)[0]
+        res_name = THREE_TO_ONE_LETTER.get(md_traj.atoms[atom].resname, 'X')
+        return res_name
 
 
-def are_residues_adjacent(index_i, index_j):
-    """
-    Check if two residues are neighbors within a specified distance.
-    
-    Parameters:
-    - index_i: Integer representing the index of the first residue.
-    - index_j: Integer representing the index of the second residue.
-    - distance_threshold: The maximum distance (in Angstroms) considered as 'neighbor'. Default is 5A.
-    
-    Returns:
-    - Boolean: True if the residues are neighbors within the specified distance, False otherwise.
-    """
-    return abs(index_i - index_j) < MAX_INDEX_DIFFERENCE_FOR_NEIGHBORS
+    def are_residues_adjacent(self, index_i, index_j):
+        """
+        Check if two residues are neighbors within a specified distance.
+        
+        Parameters:
+        - index_i: Integer representing the index of the first residue.
+        - index_j: Integer representing the index of the second residue.
+        - distance_threshold: The maximum distance (in Angstroms) considered as 'neighbor'. Default is 5A.
+        
+        Returns:
+        - Boolean: True if the residues are neighbors within the specified distance, False otherwise.
+        """
+        return abs(index_i - index_j) < MAX_INDEX_DIFFERENCE_FOR_NEIGHBORS
 
 
-def adjest_atom_coordinates(is_neighbor, residue, frame_step):
-    """
-    Adjust the coordinates of the atoms in the residue.
-    
-    Parameters:
-    is_neighbor (bool): Whether the residues are neighbors.
-    residue (list): List of tuples, each containing:
-                - atom_name (str): Name of the atom.
-                - atom_ids (list): Atom ids list.
-                - atom_occupancy (float): Occupancy of the atom.
-    
-    Returns:
-    numpy.ndarray: Adjusted coordinates of the atoms.
-    """
-    try:
-        positions = frame_step.positions
-        adjest_coord = [
-            positions[atom_id] * atom_occupancy
-            for atom_name, atom_id, atom_occupancy in residue
-            if not (is_neighbor and atom_name in MAIN_CHAINS_ATOMS)
-        ]
-        return np.array(adjest_coord)
-    except (TypeError, ValueError) as e:
-        log_warning(e, "Error processing atom coordinates")
-        return np.array([])
+    @staticmethod
+    def adjest_atom_coordinates(is_neighbor, residue, frame_step):
+        """
+        Adjust the coordinates of the atoms in the residue.
+        
+        Parameters:
+        is_neighbor (bool): Whether the residues are neighbors.
+        residue (list): List of tuples, each containing:
+                    - atom_name (str): Name of the atom.
+                    - atom_ids (list): Atom ids list.
+                    - atom_occupancy (float): Occupancy of the atom.
+        
+        Returns:
+        numpy.ndarray: Adjusted coordinates of the atoms.
+        """
+        try:
+            positions = frame_step.positions
+            adjest_coord = [
+                positions[atom_id] * atom_occupancy
+                for atom_name, atom_id, atom_occupancy in residue
+                if not (is_neighbor and atom_name in MAIN_CHAINS_ATOMS)
+            ]
+            return np.array(adjest_coord)
+        except (TypeError, ValueError) as e:
+            log_warning(e, "Error processing atom coordinates")
+            return np.array([])
 
 
-def prefilter_contacts(coord_i, coord_j):
-    """
-    Pre-filter the contacts to reduce the number of calculations.
-    
-    Parameters:
-    coord_i, coord_j: Numpy arrays representing coordinates. Both are expected to have shape (n, 3),
-                        where n is the number of coordinates.
-    
-    Returns:
-    Boolean value indicating if there is at least one pair of coordinates closer than 4.14 units.
-    """
-    # Check if coord_i and coord_j are empty
-    if not coord_i.size or not coord_j.size:
-        return False
-    
-    # Compute coordinate differences and filter pairs closer than DISTANCE_THRESHOLD
-    # coord_i shape: (m, 3) -> (m, 1, 3)
-    # coord_j shape: (n, 3) -> (1, n, 3)
-    # diff shape: (m, n, 3)
-    diff = np.abs(coord_i[:, np.newaxis, :] - coord_j[np.newaxis, :, :])
+    @staticmethod
+    def prefilter_contacts(coord_i, coord_j):
+        """
+        Pre-filter the contacts to reduce the number of calculations.
+        
+        Parameters:
+        coord_i, coord_j: Numpy arrays representing coordinates. Both are expected to have shape (n, 3),
+                            where n is the number of coordinates.
+        
+        Returns:
+        Boolean value indicating if there is at least one pair of coordinates closer than 4.14 units.
+        """
+        # Check if coord_i and coord_j are empty
+        if (not coord_i.size) or (not coord_j.size):
+            return False
+        
+        # Compute coordinate differences and filter pairs closer than DISTANCE_THRESHOLD
+        # coord_i shape: (m, 3) -> (m, 1, 3)
+        # coord_j shape: (n, 3) -> (1, n, 3)
+        # diff shape: (m, n, 3)
+        diff = np.abs(coord_i[:, np.newaxis, :] - coord_j[np.newaxis, :, :])
 
-    return np.any(np.prod(diff < ATOM_DISTANCE_THRESHOLD, axis=2))
-
-
-@jit(nopython=True)
-def get_distances(coord_i, coord_j):
-    """
-    Calculate the distances between two sets of coordinates using scipy's cdist function.
-    
-    Args:
-        coord_i: A 2D numpy array representing the first set of coordinates. Each row is a coordinate.
-        coord_j: A 2D numpy array representing the second set of coordinates. Each row is a coordinate.
-    
-    Returns:
-        A 2D numpy array where element (i,j) represents the distance between coord_i[i] and coord_j[j].
-    """
-    diff = coord_i[:, np.newaxis, :] - coord_j[np.newaxis, :, :]
-    return np.sqrt(np.sum(diff**2, axis=-1))
+        return np.any(np.prod(diff < ATOM_DISTANCE_THRESHOLD, axis=2))
 
 
-@jit(nopython=True)
-def compute_rrcs_jit(distances_matrix, d_max_squared, d_min_squared):
-    """
-    JIT-compiled function to calculate RRCS more efficiently.
-    
-    Parameters:
-    - distances_matrix (np.ndarray): Matrix of squared distances.
-    - d_max_squared (float): Squared maximum distance for contact consideration.
-    - d_min_squared (float): Squared minimum distance for full score.
-    
-    Returns:
-    - total_score (float): The computed RRCS.
-    """
-    # Apply conditions using NumPy's where function
-    scores = np.where(
-        distances_matrix >= d_max_squared,
-        0.0,
-        np.where(
-            distances_matrix <= d_min_squared,
-            1.0,
-            1.0 - ((distances_matrix - d_min_squared) / (d_max_squared - d_min_squared))
+    @staticmethod
+    @jit(nopython=True)
+    def get_distances(coord_i, coord_j):
+        """
+        Calculate the distances between two sets of coordinates using scipy's cdist function.
+        
+        Args:
+            coord_i: A 2D numpy array representing the first set of coordinates. Each row is a coordinate.
+            coord_j: A 2D numpy array representing the second set of coordinates. Each row is a coordinate.
+        
+        Returns:
+            A 2D numpy array where element (i,j) represents the distance between coord_i[i] and coord_j[j].
+        """
+        diff = coord_i[:, np.newaxis, :] - coord_j[np.newaxis, :, :]
+        return np.sqrt(np.sum(diff**2, axis=-1))
+
+
+    @staticmethod
+    @jit(nopython=True)
+    def compute_rrcs_jit(distances_matrix, d_max_squared, d_min_squared):
+        """
+        JIT-compiled function to calculate RRCS more efficiently.
+        
+        Parameters:
+        - distances_matrix (np.ndarray): Matrix of squared distances.
+        - d_max_squared (float): Squared maximum distance for contact consideration.
+        - d_min_squared (float): Squared minimum distance for full score.
+        
+        Returns:
+        - total_score (float): The computed RRCS.
+        """
+        # Apply conditions using NumPy's where function
+        scores = np.where(
+            distances_matrix >= d_max_squared,
+            0.0,
+            np.where(
+                distances_matrix <= d_min_squared,
+                1.0,
+                1.0 - ((distances_matrix - d_min_squared) / (d_max_squared - d_min_squared))
+            )
         )
-    )
 
-    # Sum all elements in the score matrix
-    return np.sum(scores)
-
-
-def get_residue_info(md_traj, chains, residues):
-    """
-    Retrieve residue information from the universe.
-    
-    Parameters:
-    residues (list): List of residue IDs.
-    
-    Returns:
-    - A dictionary containing residue information.
-    """
-    pair_chain = defaultdict(dict)
-    for _ix, _id in chains:
-        _id = 'A' if _id == 'SYSTEM' else _id
-        pair_residue = defaultdict(dict)
-        for resid in residues:
-            atom_ids = list(md_traj.select_atoms(f"resid {resid} and not name H* and segindex {_ix}").ids - 1)
-            pair_atom = []
-            for atom_id in atom_ids:
-                atom = md_traj.atoms[atom_id]
-                atom_name = atom.name
-                # atom_coor = atom.position
-                atom_occu = atom.occupancy
-                res_name = atom.resname
-                pair_atom.append((atom_name, atom_id, atom_occu))
-            res_name = THREE_TO_ONE_LETTER.get(res_name, 'X')
-            pair_residue[f'{resid}{res_name}'] = pair_atom
-        pair_chain[(_ix, _id)] = pair_residue
-    return pair_chain
+        # Sum all elements in the score matrix
+        return np.sum(scores)
 
 
-def load_residues(res_pairs):
-    """
-    Processes a given list of tuples, extracting the first and second elements 
-    from each tuple into two separate sets to eliminate duplicates. Finally, 
-    it returns two sorted lists containing these unique elements.
-
-    Args:
-    - res_pairs: A list containing tuples. The first and second elements from 
-                each tuple will be extracted.
-
-    Returns:
-    - Two sorted lists containing all unique first and second elements from 
-    the tuples, respectively.
-    """
-
-    # Input validation
-    if not isinstance(res_pairs, tuple):
-        logging.error("res_pairs must be a tuple")
-    if not all(isinstance(pair, tuple) and len(pair) == 2 for pair in res_pairs):
-        logging.error("Each element in res_pairs must be a tuple of length 2")
-    
-    member_first = set()
-    member_second = set()
-    
-    for pair in res_pairs:
-        member_first.add(pair[0])
-        member_second.add(pair[1])
-    member_first = sorted(member_first)
-    member_second = sorted(member_second)
-
-    return member_first, member_second
+    def get_residue_info(self, md_traj, chains, residues):
+        """
+        Retrieve residue information from the universe.
+        
+        Parameters:
+        residues (list): List of residue IDs.
+        
+        Returns:
+        - A dictionary containing residue information.
+        """
+        pair_chain = defaultdict(dict)
+        for _ix, _id in chains:
+            _id = 'A' if _id == 'SYSTEM' else _id
+            pair_residue = defaultdict(dict)
+            for resid in residues:
+                atom_ids = list(md_traj.select_atoms(f"resid {resid} and not name H* and segindex {_ix}").ids - 1)
+                pair_atom = []
+                for atom_id in atom_ids:
+                    atom = md_traj.atoms[atom_id]
+                    atom_name = atom.name
+                    # atom_coor = atom.position
+                    atom_occu = atom.occupancy
+                    res_name = atom.resname
+                    pair_atom.append((atom_name, atom_id, atom_occu))
+                res_name = THREE_TO_ONE_LETTER.get(res_name, 'X')
+                pair_residue[f'{resid}{res_name}'] = pair_atom
+            pair_chain[(_ix, _id)] = pair_residue
+        return pair_chain
 
 
-def analyze_frame(frame_index, info_first, info_second, settings, md_traj):
-    """
-    Analyzes a specified frame of molecular structure to calculate the distances 
-    and Relative Residual Contact Scores (RRCS) between specific residue pairs.
-    
-    Parameters:
-    frame_index : int
-        The index of the frame from which to extract structural information.
-    info_first : dict
-        A dictionary containing residue information for the first model.
-    info_second : dict
-        A dictionary containing residue information for the second model.
-    settings : dict
-        A dictionary containing calculation settings such as residue pairs,
-        minimum and maximum radii.
-    md_traj : object
-        A molecular dynamics trajectory object that holds structural information
-        for all frames.
-    
-    Returns:
-    frame_count : int
-        The count of the current frame.
-    frame_rrcs : list
-        A list of all calculated RRCS values for the current frame.
-    """
-    # Retrieve step information for the specified frame
-    frame_step = md_traj.trajectory[frame_index]
-    frame_count = frame_step.frame + 1
-    # Initialize the list for RRCS values of the current frame
-    frame_rrcs = []
+    def load_residues(self, res_pairs):
+        """
+        Processes a given list of tuples, extracting the first and second elements 
+        from each tuple into two separate sets to eliminate duplicates. Finally, 
+        it returns two sorted lists containing these unique elements.
 
-    # Iterate over all chains and residues information in the first model
-    for chain_ix, chain_id in info_first.keys():
-        info_res_first = info_first[(chain_ix, chain_id)]
-        info_res_second = info_second[(chain_ix, chain_id)]
-        # Iterate over the residue pairs defined in settings
-        for index_i, index_j in settings['res_pairs']:
-            res_i = get_residue_name(md_traj, index_i, chain_ix)
-            res_j = get_residue_name(md_traj, index_j, chain_ix)
-            info_i = info_res_first[f"{index_i}{res_i}"]
-            info_j = info_res_second[f"{index_j}{res_j}"]
-            # Determine whether the residue pair is adjacent
-            is_adjacent = are_residues_adjacent(index_i, index_j)
-            # Adjust atom coordinates based on occupancy
-            coord_i = adjest_atom_coordinates(is_adjacent, info_i, frame_step)
-            coord_j = adjest_atom_coordinates(is_adjacent, info_j, frame_step)
+        Args:
+        - res_pairs: A list containing tuples. The first and second elements from 
+                    each tuple will be extracted.
 
-            # Pre-filter contacts
-            if prefilter_contacts(coord_i, coord_j):
-                # Calculate distance between residue pairs
-                dist = get_distances(coord_i, coord_j)
-                radius_min = settings['radius_min']
-                radius_max = settings['radius_max']
-                rrcs_score = compute_rrcs_jit(dist, radius_max, radius_min)
-            else:
-                rrcs_score = 0
-            frame_rrcs.append((f"{chain_id}:{index_i}{res_i}", f"{chain_id}:{index_j}{res_j}", rrcs_score))
-    return frame_count, frame_rrcs
+        Returns:
+        - Two sorted lists containing all unique first and second elements from 
+        the tuples, respectively.
+        """
+
+        # Input validation
+        if not isinstance(res_pairs, tuple):
+            logging.error("res_pairs must be a tuple")
+        if not all(isinstance(pair, tuple) and len(pair) == 2 for pair in res_pairs):
+            logging.error("Each element in res_pairs must be a tuple of length 2")
+        
+        member_first = set()
+        member_second = set()
+        
+        for pair in res_pairs:
+            member_first.add(pair[0])
+            member_second.add(pair[1])
+        member_first = sorted(member_first)
+        member_second = sorted(member_second)
+
+        return member_first, member_second
 
 
-@timing_decorator
-def analyze_contacts(basic_settings, member_first, member_second):
-    """
-    Main function to iterate through trajectory frames, calculate residue-residue contacts, and their scores in parallel.
-    """
-    global_start = timeit.default_timer()
+    def analyze_frame(self, frame_index, info_first, info_second, settings, md_traj):
+        """
+        Analyzes a specified frame of molecular structure to calculate the distances 
+        and Relative Residual Contact Scores (RRCS) between specific residue pairs.
+        
+        Parameters:
+        frame_index : int
+            The index of the frame from which to extract structural information.
+        info_first : dict
+            A dictionary containing residue information for the first model.
+        info_second : dict
+            A dictionary containing residue information for the second model.
+        settings : dict
+            A dictionary containing calculation settings such as residue pairs,
+            minimum and maximum radii.
+        md_traj : object
+            A molecular dynamics trajectory object that holds structural information
+            for all frames.
+        
+        Returns:
+        frame_count : int
+            The count of the current frame.
+        frame_rrcs : list
+            A list of all calculated RRCS values for the current frame.
+        """
+        # Retrieve step information for the specified frame
+        frame_step = md_traj.trajectory[frame_index]
+        frame_count = frame_step.frame + 1
+        # Initialize the list for RRCS values of the current frame
+        frame_rrcs = []
 
-    all_frame_rrcs = {}
-    md_traj = basic_settings['md_traj']
+        # Iterate over all chains and residues information in the first model
+        for chain_ix, chain_id in info_first.keys():
+            info_res_first = info_first[(chain_ix, chain_id)]
+            info_res_second = info_second[(chain_ix, chain_id)]
+            # Iterate over the residue pairs defined in settings
+            for index_i, index_j in settings['res_pairs']:
+                res_i = self.get_residue_name(md_traj, index_i, chain_ix)
+                res_j = self.get_residue_name(md_traj, index_j, chain_ix)
+                info_i = info_res_first[f"{index_i}{res_i}"]
+                info_j = info_res_second[f"{index_j}{res_j}"]
+                # Determine whether the residue pair is adjacent
+                is_adjacent = self.are_residues_adjacent(index_i, index_j)
+                # Adjust atom coordinates based on occupancy
+                coord_i = self.adjest_atom_coordinates(is_adjacent, info_i, frame_step)
+                coord_j = self.adjest_atom_coordinates(is_adjacent, info_j, frame_step)
 
-    begin_time_index = int(basic_settings['begin_time'] / basic_settings['time_resolution_min'])
-    end_time_index = int(basic_settings['end_time'] / basic_settings['time_resolution_min'])
-    frequency_step_index = int(basic_settings['freq_step'] / basic_settings['time_resolution_min'])
+                # Pre-filter contacts
+                if self.prefilter_contacts(coord_i, coord_j):
+                    # Calculate distance between residue pairs
+                    dist = self.get_distances(coord_i, coord_j)
+                    radius_min = settings['radius_min']
+                    radius_max = settings['radius_max']
+                    rrcs_score = self.compute_rrcs_jit(dist, radius_max, radius_min)
+                else:
+                    rrcs_score = 0
+                frame_rrcs.append((f"{chain_id}:{index_i}{res_i}", f"{chain_id}:{index_j}{res_j}", rrcs_score))
+        return frame_count, frame_rrcs
 
-    info_first = get_residue_info(basic_settings['md_traj'], basic_settings['traj_chains'], member_first)
-    info_second = get_residue_info(basic_settings['md_traj'], basic_settings['traj_chains'], member_second)
 
-    # Prepare the arguments for the parallel processing tasks
-    args = []
-    for frame_index in range(begin_time_index, end_time_index+1, frequency_step_index):
-        args.append((frame_index, info_first, info_second, basic_settings, md_traj))
+    @timing_decorator
+    def analyze_contacts(self, basic_settings, member_first, member_second):
+        """
+        Main function to iterate through trajectory frames, calculate residue-residue contacts, and their scores in parallel.
+        """
+        global_start = timeit.default_timer()
 
-    n_cpus = basic_settings['num_processes']
-    if (n_cpus > 1) or (n_cpus == None):
-        # Use the process pool executor for parallel processing
-        with ProcessPoolExecutor(max_workers=n_cpus) as executor:
-            futures = [executor.submit(analyze_frame, *arg) for arg in args]
+        all_frame_rrcs = {}
+        md_traj = basic_settings['md_traj']
 
-            # Wait for all tasks to complete
-            wait(futures, return_when=ALL_COMPLETED)
+        begin_time_index = int(basic_settings['begin_time'] / basic_settings['time_resolution_min'])
+        end_time_index = int(basic_settings['end_time'] / basic_settings['time_resolution_min'])
+        frequency_step_index = int(basic_settings['freq_step'] / basic_settings['time_resolution_min'])
 
-            # Iterate through the completed tasks, updating the contact information of all frames
-            for future in as_completed(futures):
-                frame_count, frame_rrcs = future.result()
-                all_frame_rrcs[frame_count] = frame_rrcs
-                print_nstep_time(frame_count, global_start, basic_settings['print_freq'])
-    elif n_cpus <= 1:
-        # Use serial processing when the number of CPUs is less than 1
+        info_first = self.get_residue_info(basic_settings['md_traj'], basic_settings['traj_chains'], member_first)
+        info_second = self.get_residue_info(basic_settings['md_traj'], basic_settings['traj_chains'], member_second)
+
+        # Prepare the arguments for the parallel processing tasks
+        args = []
         for frame_index in range(begin_time_index, end_time_index+1, frequency_step_index):
-            # Analyze a single frame
-            frame_count, frame_rrcs = analyze_frame(
-                frame_index, 
-                info_first, 
-                info_second, 
-                basic_settings, 
-                md_traj)
-            # Prints the elapsed time at specified calculation steps.
-            print_nstep_time(frame_count, global_start, basic_settings['print_freq'])
-    return all_frame_rrcs
+            args.append((frame_index, info_first, info_second, basic_settings, md_traj))
+
+        n_cpus = basic_settings['num_processes']
+        if (n_cpus == None) or (n_cpus > 1):
+            # Use the process pool executor for parallel processing
+            with ProcessPoolExecutor(max_workers=n_cpus) as executor:
+                futures = [executor.submit(self.analyze_frame, *arg) for arg in args]
+
+                # Wait for all tasks to complete
+                wait(futures, return_when=ALL_COMPLETED)
+
+                # Iterate through the completed tasks, updating the contact information of all frames
+                for future in as_completed(futures):
+                    frame_count, frame_rrcs = future.result()
+                    all_frame_rrcs[frame_count] = frame_rrcs
+                    print_nstep_time(frame_count, global_start, basic_settings['print_freq'])
+        elif n_cpus <= 1:
+            # Use serial processing when the number of CPUs is less than 1
+            for frame_index in range(begin_time_index, end_time_index+1, frequency_step_index):
+                # Analyze a single frame
+                frame_count, frame_rrcs = self.analyze_frame(
+                    frame_index, 
+                    info_first, 
+                    info_second, 
+                    basic_settings, 
+                    md_traj)
+                all_frame_rrcs[frame_count] = frame_rrcs
+                # Prints the elapsed time at specified calculation steps.
+                print_nstep_time(frame_count, global_start, basic_settings['print_freq'])
+        return all_frame_rrcs
 
 
 def main():
@@ -862,8 +872,9 @@ def main():
     initializer.check()
 
     basic_config = initializer.basic
-    member_first, member_second = load_residues(basic_config['res_pairs'])
-    all_frame_rrcs = analyze_contacts(basic_config, member_first, member_second)
+    analyzer = RRCSAnalyzer()
+    member_first, member_second = analyzer.load_residues(basic_config['res_pairs'])
+    all_frame_rrcs = analyzer.analyze_contacts(basic_config, member_first, member_second)
 
     DataVisualizer(initializer.basic, all_frame_rrcs).run()
 
