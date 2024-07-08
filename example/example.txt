@@ -1,0 +1,8 @@
+r_min     =   3.23   ;Specify the minimum distance for atomic contacts.  The default value is 3.23 Å.
+r_max     =   4.63   ;Specify the maximum distance for atomic contacts.  The default value is 4.63 Å.
+bt        =   0.0    ;The starting time for the calculation, in units of ps. The default value is 0.0 ps.
+et        =   100.0  ;The end time for the calculation, in units of ps. The default value is all.
+dt        =   1.0    ;The frequency for calculating each frame in units of ps, by default it is set to calculate every frame.
+res       = index.txt;The file name of the residue index file.
+top       = md0.pdb  ;The file name of the topology file. It must be the PDB file of the first frame in the trajectory file.
+traj      = md0.xtc  ;The file name of the trajectory file.
