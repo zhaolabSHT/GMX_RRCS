@@ -5,14 +5,12 @@ import itertools
 import logging
 import argparse
 
-import numba
 import timeit
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 from numba import jit
-
 from collections import defaultdict
 from typing import Dict, Union
 from termcolor import colored 
