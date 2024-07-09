@@ -281,6 +281,9 @@ class UniverseInitializer:
         traj_time = self.basic['md_traj'].trajectory[-1].time
         logging.info(f'Trajectory file contains {traj_time} ps.')
 
+        n_traj_steps = self.basic['md_traj'].trajectory.n_frames
+        logging.info(f'Trajectory file contains {n_traj_steps} frames.')
+
         parser = ResidueCombinePairs(self.basic)
         parser.read_file()
         self.basic["res_pairs"] = parser.get_res_pairs()
