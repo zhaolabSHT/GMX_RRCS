@@ -330,7 +330,9 @@ class UniverseInitializer:
         self.basic['freq_step'] = max(self.basic["time_resolution_min"], self.basic['freq_step'])
         # Throw an exception if the time step exceeds the end time
         if self.basic['freq_step'] > self.basic['end_time']:
-            raise ParameterWrongError('--freq_step')
+            log_error(
+                "TooFewFrames",
+                f"The step size of {self.basic['freq_step']} ps exceeds the time interval of {self.basic['end_time'] - self.basic['begin_time']} ps.")
 
     def get_chain(self):
         """

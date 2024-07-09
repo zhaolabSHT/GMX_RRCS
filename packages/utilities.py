@@ -90,10 +90,6 @@ class InputFileError(FileNotFoundError):
     pass
 
 
-class ParameterWrongError(Exception):
-    pass
-
-
 class ResidueIndexError(Exception):
     def __init__(self):
         super().__init__(
