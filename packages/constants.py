@@ -28,6 +28,13 @@ MAX_INDEX_DIFFERENCE_FOR_NEIGHBORS = 5
 # The minimum amount of space between columns in the output file.
 OUTPUT_OFFSET = 2
 
+# The minimum amount of frames to be considered for the calculation
+STEP_INDEX_LOWER_LIMIT = 5
+
+# Warning threshold for excessive trajectory computation frames
+STEP_INDEX_WARN_LIMIT = 10000
+
+
 # Header description of the output file
 OUTPUT_HEADER = """
 # This document provides a detailed record of the calculation results of the 

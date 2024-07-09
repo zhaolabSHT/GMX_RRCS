@@ -861,6 +861,37 @@ class RRCSAnalyzer:
                 frame_rrcs.append((f"{chain_id}:{index_i}{res_i}", f"{chain_id}:{index_j}{res_j}", rrcs_score))
         return frame_count, frame_rrcs
 
+    @staticmethod
+    def check_time_index(begin_index, end_index, step_index):
+        """
+        Check if the step index is reasonable based on the start and end indices.
+
+        This function is used to validate the time series index step size to ensure it is reasonable,
+        and will adjust the step size automatically if it is too large or too small.
+
+        Parameters:
+        begin_index: The start index of the time series.
+        end_index: The end index of the time series.
+        step_index: The step size of the time series index.
+
+        Returns:
+        step_index: The adjusted step size.
+        """
+        index_multiple = int((end_index - begin_index) / step_index) + 1
+        if index_multiple <= 0:
+            logging.error("The end time is earlier than the start time")
+            sys.exit()
+        elif index_multiple <= STEP_INDEX_LOWER_LIMIT:
+            step_index = int((end_index - begin_index) / 5)
+            logging.warning(
+                f'Step size too large, automatically reducing step size to {step_index}.')
+        elif index_multiple > STEP_INDEX_WARN_LIMIT:
+            logging.warning(
+                f'The number of frames to be computed exceeds {STEP_INDEX_WARN_LIMIT}. ' 
+                + 'While we will not modify the step size, this will require a long computation time.')
+        else:
+            logging.info(f'Step size is {step_index}, Computation steps are {index_multiple}.')
+        return step_index
 
     @timing_decorator
     def analyze_contacts(self, basic_settings):
@@ -886,9 +917,11 @@ class RRCSAnalyzer:
         protein = basic_settings['protein']
 
         # Calculate the start index, end index, and step index of the analysis time period based on the configuration
-        begin_time_index = int(basic_settings['begin_time'] / basic_settings['time_resolution_min'])
-        end_time_index = int(basic_settings['end_time'] / basic_settings['time_resolution_min'])
-        frequency_step_index = int(basic_settings['freq_step'] / basic_settings['time_resolution_min'])
+        step_time = basic_settings['time_resolution_min']
+        begin_time_index = int((basic_settings['begin_time'] - basic_settings['first_frame_time']) / step_time)
+        end_time_index = int((basic_settings['end_time'] - basic_settings['first_frame_time']) / step_time)
+        frequency_step_index = int(basic_settings['freq_step'] / step_time)
+        frequency_step_index = self.check_time_index(begin_time_index, end_time_index, frequency_step_index)
 
         # Load the residues of interest based on the residue pair configuration
         member_first, member_second = self.load_residues(basic_settings['res_pairs'])
