@@ -1,0 +1,2 @@
+[console_scripts]
+gmx_rrcs = packages.gmx_rrcs:main

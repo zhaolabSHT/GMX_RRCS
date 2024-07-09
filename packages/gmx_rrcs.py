@@ -19,18 +19,22 @@ from MDAnalysis import Universe
 from concurrent.futures import wait, ALL_COMPLETED
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+try:
+    # Attempt to import modules from a subdirectory named 'packages' within the current directory.
+    from packages.utilities import *
+    from packages.constants import *
+except:
+    try:
+        # If the initial import fails (likely due to differing working directories), 
+        # attempt to import using a relative path.
+        from .utilities import *
+        from .constants import *
+    except:
+        # If importing with a relative path also fails, 
+        # attempt to import directly from the current directory.
+        from utilities import *
+        from constants import *
 
-from utilities import (
-    log_error, log_warning, timing_decorator,
-    InputFileError, ParameterWrongError,
-    ResidueIndexError, print_nstep_time,
-)
-from constants import (
-    THREE_TO_ONE_LETTER, MAIN_CHAINS_ATOMS, 
-    ATOM_DISTANCE_THRESHOLD, OUTPUT_OFFSET,
-    MAX_INDEX_DIFFERENCE_FOR_NEIGHBORS,
-    OUTPUT_HEADER, OUTPUT_FILTER_HEADER,
-)
 
 # configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -561,6 +565,7 @@ class DataVisualizer:
         self.write_output()
 
 
+@timing_decorator
 class RRCSAnalyzer:
     def __init__(self):
         # self.basic_settings = basic_settings
@@ -882,7 +887,7 @@ class RRCSAnalyzer:
         return all_frame_rrcs
 
 
-def main():
+def run_pipline():
     """
     The entry point of the program, responsible for executing the analysis and plotting process.
     
@@ -905,14 +910,21 @@ def main():
     DataVisualizer(initializer.basic, all_frame_rrcs).run()
 
 
+def main():
+    """
+    The main function of the program, responsible for executing the entire analysis and visualization process.
+    """
+    run_pipline()
+
+
 if __name__ == "__main__":
 
-    global_start = timeit.default_timer()
+    # global_start = timeit.default_timer()
     main()
-    elapsed = timeit.default_timer() - global_start
-    logging.info(
-        "The GMX_RRCS program has finished running, with a total elapsed time of "
-        + colored(f"{elapsed:.6f} ", 'green')
-        + "seconds."
-        )
+    # elapsed = timeit.default_timer() - global_start
+    # logging.info(
+    #     "The GMX_RRCS program has finished running, with a total elapsed time of "
+    #     + colored(f"{elapsed:.6f} ", 'green')
+    #     + "seconds."
+    #     )
 
