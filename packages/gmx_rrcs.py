@@ -9,6 +9,7 @@ import argparse
 import timeit
 import numpy as np
 import seaborn as sns
+import MDAnalysis as mda
 import matplotlib.pyplot as plt
 
 from numba import jit
@@ -143,10 +144,20 @@ class ResidueCombinePairs:
             tuple: The result of the parsing.
         """
         line = line.strip().split(";")[0].strip() # Remove comments
-        if '$' in line:
+        # If the line consists only of alphanumeric characters, it is processed as a special type of line
+        if is_alnum_space(line):
+            return self.parse_other_line(line)
+        # If the line contains the '$' symbol, it is processed as a standard type of line
+        elif '$' in line:
             return self.parse_stand_line(line)
         else:
-            return self.parse_other_line(line)
+            # If the line does not meet the above two conditions and contains illegal characters, log an error
+            print(line)
+            print('-'*100)
+            log_error(
+                "InputFileError", 
+                "The --res_file you entered contains illegal characters, please ensure that your delimiter is '$'."
+                )
         
     def parse_stand_line(self, line):
         """Parse lines containing '$', generating all possible combinations of residue pairs."""
@@ -196,13 +207,13 @@ class ResidueCombinePairs:
                     consecutive residues in the sorted list.
 
         Raises:
-            KeyError: If 'md_traj' key is missing in the basic settings.
+            KeyError: If 'protein' key is missing in the basic settings.
             AttributeError: If 'residues' attribute is missing in the MD trajectory.
             Exception: For any other unexpected errors during execution.
         """
-        md_traj = self.basic_settings['md_traj']
+        protein = self.basic_settings['protein']
         # Extract resid values from residues
-        residues = [res.resid for res in md_traj.residues]
+        residues = [res.resid for res in protein.residues]
         return set(itertools.combinations(residues, r=2))
 
     def get_res_pairs(self):
@@ -263,8 +274,12 @@ class UniverseInitializer:
         # Instantiate the Universe object with topology and trajectory file paths
         self.basic['md_traj'] = Universe(self.basic['top_file'], self.basic['traj_file'])
         # Store the number of residues in the universe into the basic dictionary
-        self.basic['res_num'] = len(self.basic['md_traj'].residues)
+        self.basic['protein'] = self.basic['md_traj'].select_atoms('protein')
+        self.basic['res_num'] = len(self.basic['protein'].residues)
         logging.info(f"Topology file contains {self.basic['res_num']} residues.")
+
+        traj_time = self.basic['md_traj'].trajectory[-1].time
+        logging.info(f'Trajectory file contains {traj_time} ps.')
 
         parser = ResidueCombinePairs(self.basic)
         parser.read_file()
@@ -284,7 +299,7 @@ class UniverseInitializer:
         instead, it updates the object's state by setting the instance dict `basic`.
         """
         # Compute the time difference and divide by the number of intervals to get the mean time step
-        self.basic["time_resolution_min"] = int((self.basic['md_traj'].trajectory[-1].time - self.basic['md_traj'].trajectory[0].time) / (len(self.basic['md_traj'].trajectory) - 1))
+        self.basic["time_resolution_min"] = int((self.basic['md_traj'].trajectory[-1].time - self.basic['md_traj'].trajectory[0].time) / (self.basic['md_traj'].trajectory.n_frames - 1))
 
     def check_time_interval(self):
         """
@@ -579,8 +594,11 @@ class RRCSAnalyzer:
         """
         Get residue names from the universe.
         """
-        atom = list(md_traj.select_atoms(f"resid {index_i} and not name H* and segindex {chain_ix}").ids - 1)[0]
-        res_name = THREE_TO_ONE_LETTER.get(md_traj.atoms[atom].resname, 'X')
+        atoms = list(md_traj.select_atoms(f"resid {index_i} and not name H* and segindex {chain_ix}").ids - 1)
+        if atoms:
+            res_name = THREE_TO_ONE_LETTER.get(md_traj.atoms[atoms[0]].resname, 'X')
+        else:
+            res_name = 'X'
         return res_name
 
 
@@ -699,7 +717,7 @@ class RRCSAnalyzer:
         return np.sum(scores)
 
 
-    def get_residue_info(self, md_traj, chains, residues):
+    def get_residue_info(self, protein, chains, residues):
         """
         Retrieve residue information from the universe.
         
@@ -714,17 +732,24 @@ class RRCSAnalyzer:
             _id = 'A' if _id == 'SYSTEM' else _id
             pair_residue = defaultdict(dict)
             for resid in residues:
-                atom_ids = list(md_traj.select_atoms(f"resid {resid} and not name H* and segindex {_ix}").ids - 1)
+                atom_ids = list(protein.select_atoms(f"resid {resid} and not name H* and segindex {_ix}").ids - 1)
+                res_name = ''
                 pair_atom = []
                 for atom_id in atom_ids:
-                    atom = md_traj.atoms[atom_id]
+                    atom = protein.atoms[atom_id]
                     atom_name = atom.name
-                    # atom_coor = atom.position
-                    atom_occu = atom.occupancy
+                    # For each atom, attempt to retrieve its occupancy value
+                    try:
+                        atom_occu = atom.occupancy
+                    except mda.exceptions.NoDataError as e:
+                        # If a NoDataError exception occurs, this means the atom lacks occupancy information
+                        # In such cases, we set the occupancy atom_occu to a default value of 1.0
+                        atom_occu = 1.0
                     res_name = atom.resname
                     pair_atom.append((atom_name, atom_id, atom_occu))
-                res_name = THREE_TO_ONE_LETTER.get(res_name, 'X')
-                pair_residue[f'{resid}{res_name}'] = pair_atom
+                if pair_atom or res_name:
+                    res_name = THREE_TO_ONE_LETTER.get(res_name, 'X')
+                    pair_residue[f'{resid}{res_name}'] = pair_atom
             pair_chain[(_ix, _id)] = pair_residue
         return pair_chain
 
@@ -842,6 +867,7 @@ class RRCSAnalyzer:
 
         # Obtain the molecular dynamics simulation trajectory
         md_traj = basic_settings['md_traj']
+        protein = basic_settings['protein']
 
         # Calculate the start index, end index, and step index of the analysis time period based on the configuration
         begin_time_index = int(basic_settings['begin_time'] / basic_settings['time_resolution_min'])
@@ -851,8 +877,8 @@ class RRCSAnalyzer:
         # Load the residues of interest based on the residue pair configuration
         member_first, member_second = self.load_residues(basic_settings['res_pairs'])
 
-        info_first = self.get_residue_info(basic_settings['md_traj'], basic_settings['traj_chains'], member_first)
-        info_second = self.get_residue_info(basic_settings['md_traj'], basic_settings['traj_chains'], member_second)
+        info_first = self.get_residue_info(protein, basic_settings['traj_chains'], member_first)
+        info_second = self.get_residue_info(protein, basic_settings['traj_chains'], member_second)
 
         # Prepare the arguments for the parallel processing tasks
         args = []

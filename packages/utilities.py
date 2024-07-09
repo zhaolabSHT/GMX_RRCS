@@ -37,6 +37,17 @@ def log_warning(warning_type: str, message: str):
     logging.warning(message)
     print(colored(f"Warning: {warning_type}", "yellow"), message)
 
+
+def is_alnum_space(s):
+    """
+    Check if the string s consists only of alphanumeric characters and spaces.
+
+    :param s: str - The string to check.
+    :return: bool - True if the string contains only letters, digits, and spaces; False otherwise.
+    """
+    return all(c.isalnum() or c.isspace() or (c=='-') for c in s)
+
+
 def timing_decorator(func):
     @wraps(func)
     def wrapper(*args, **kwargs):

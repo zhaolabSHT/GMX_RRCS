@@ -51,3 +51,9 @@ optional arguments:
   --print_freq PRINT_FREQ
                         Print the elapsed time every N frames, default is 1000 frames.
 ```
+
+
+# 文件格式
+我们采用MDAnalysis库来读取处理GROMACS轨迹，因此--top_file和--traj_file参数接收的是MDAnalysis库允许接收的文件格式。因此，你需要确认你的输入文件是否符合MDAnalysis库的格式要求。在我们的测试下在读取".tpr"文件有时候会出错，因此我们建议你使用".pdb"文件格式作为--top_file参数的输入拓扑文件。轨迹文件建议使用".xtc"文件格式。我们强烈建议你在运行gmx_rrcs之前先检查你输入文件中的蛋白是否完整，轨迹是否正确。
+
+
