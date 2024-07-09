@@ -282,8 +282,8 @@ class UniverseInitializer:
         traj_time = self.basic['md_traj'].trajectory[-1].time
         logging.info(f'Trajectory file contains {traj_time} ps.')
 
-        n_traj_steps = self.basic['md_traj'].trajectory.n_frames
-        logging.info(f'Trajectory file contains {n_traj_steps} frames.')
+        self.basic['n_traj_steps'] = self.basic['md_traj'].trajectory.n_frames
+        logging.info(f"Trajectory file contains {self.basic['n_traj_steps']} frames.")
 
         parser = ResidueCombinePairs(self.basic)
         parser.read_file()
@@ -302,8 +302,15 @@ class UniverseInitializer:
         Note: This method takes no explicit parameters and does not return a value;
         instead, it updates the object's state by setting the instance dict `basic`.
         """
+        self.basic['first_frame_time'] = self.basic['md_traj'].trajectory[0].time
+        logging.info(f"The initial frame time of the trajectory is {self.basic['first_frame_time']} ps")
+        self.basic['last_frame_time'] = self.basic['md_traj'].trajectory[-1].time
+        logging.info(f"The final frame finaltime of the trajectory is {self.basic['last_frame_time']} ps")
+        
         # Compute the time difference and divide by the number of intervals to get the mean time step
-        self.basic["time_resolution_min"] = int((self.basic['md_traj'].trajectory[-1].time - self.basic['md_traj'].trajectory[0].time) / (self.basic['md_traj'].trajectory.n_frames - 1))
+        self.basic['time_resolution_min'] = int((self.basic['last_frame_time'] - self.basic['first_frame_time']) / (self.basic['n_traj_steps'] - 1))
+        logging.info(f"The interval time between adjacent frames of the trajectory is {self.basic['time_resolution_min']} ps")
+
 
     def check_time_interval(self):
         """
@@ -322,7 +329,7 @@ class UniverseInitializer:
         ParameterWrongError: If the time interval is incorrectly set, this exception is thrown.
         """
         # Ensure the start time is non-negative
-        self.basic['begin_time'] = max(self.basic['begin_time'], 0.0)
+        self.basic['begin_time'] = max(self.basic['begin_time'], self.basic['md_traj'].trajectory[0].time)
         logging.info(f"User specified analysis of trajectory starting from {self.basic['begin_time']} ps")
         # Ensure the end time does not surpass the final moment of the trajectory
         self.basic['end_time'] = min(self.basic['end_time'], self.basic['md_traj'].trajectory[-1].time)
@@ -340,7 +347,7 @@ class UniverseInitializer:
         Retrieves the chain information from the trajectory.
         """
         chains = []
-        for chain in self.basic["md_traj"].segments:
+        for chain in self.basic["protein"].segments:
             chains.append((chain.segindex, chain.segid))
         self.basic['traj_chains'] = chains
 
@@ -597,13 +604,13 @@ class RRCSAnalyzer:
         # self.basic_settings = basic_settings
         pass
 
-    def get_residue_name(self, md_traj, index_i, chain_ix):
+    def get_residue_name(self, protein, index_i, chain_ix):
         """
         Get residue names from the universe.
         """
-        atoms = list(md_traj.select_atoms(f"resid {index_i} and not name H* and segindex {chain_ix}").ids - 1)
+        atoms = list(protein.select_atoms(f"resid {index_i} and not name H* and segindex {chain_ix}").ids - 1)
         if atoms:
-            res_name = THREE_TO_ONE_LETTER.get(md_traj.atoms[atoms[0]].resname, 'X')
+            res_name = THREE_TO_ONE_LETTER.get(protein.atoms[atoms[0]].resname, 'X')
         else:
             res_name = 'X'
         return res_name
@@ -821,6 +828,7 @@ class RRCSAnalyzer:
         """
         # Retrieve step information for the specified frame
         frame_step = md_traj.trajectory[frame_index]
+        protein = md_traj.select_atoms("protein")
         frame_count = frame_step.frame + 1
         # Initialize the list for RRCS values of the current frame
         frame_rrcs = []
@@ -831,8 +839,8 @@ class RRCSAnalyzer:
             info_res_second = info_second[(chain_ix, chain_id)]
             # Iterate over the residue pairs defined in settings
             for index_i, index_j in settings['res_pairs']:
-                res_i = self.get_residue_name(md_traj, index_i, chain_ix)
-                res_j = self.get_residue_name(md_traj, index_j, chain_ix)
+                res_i = self.get_residue_name(protein, index_i, chain_ix)
+                res_j = self.get_residue_name(protein, index_j, chain_ix)
                 info_i = info_res_first[f"{index_i}{res_i}"]
                 info_j = info_res_second[f"{index_j}{res_j}"]
                 # Determine whether the residue pair is adjacent
