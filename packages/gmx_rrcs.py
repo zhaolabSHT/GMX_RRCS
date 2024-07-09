@@ -208,7 +208,7 @@ class ResidueCombinePairs:
     def get_res_pairs(self):
         """Retrieve the parsed set of residue pairs."""
         pairs = tuple(sorted(self.res_pair_set))
-        logging.info(f"Read {len(pairs)} residue pairs.")
+        logging.info(f"Read {len(pairs)} residue pairs. Proceeding to calculate RRCS between these {len(pairs)} residue pairs.")
         return pairs
 
 
@@ -231,6 +231,7 @@ class UniverseInitializer:
         # Ensure the radius minimum is non-negative
         self.basic['radius_min'] = max(self.basic['radius_min'], 0)
         self.basic['radius_max'] = max(self.basic['radius_min'], self.basic['radius_max'])
+        logging.info(f"Radius settings updated. Minimum radius: {self.basic['radius_min']}, Maximum radius: {self.basic['radius_max']}.")
 
     def check_file_exists(self):
         """
@@ -245,6 +246,8 @@ class UniverseInitializer:
             # Checks if the file exists, and raises an InputFileError if not
             if not os.path.exists(self.basic[file_type]):
                 raise InputFileError(self.basic[file_type])
+            else:
+                logging.info(f"Configured {file_type} setting to: {self.basic[file_type]}")
 
     def initialize_universe(self):
         """
@@ -261,6 +264,7 @@ class UniverseInitializer:
         self.basic['md_traj'] = Universe(self.basic['top_file'], self.basic['traj_file'])
         # Store the number of residues in the universe into the basic dictionary
         self.basic['res_num'] = len(self.basic['md_traj'].residues)
+        logging.info(f"Topology file contains {self.basic['res_num']} residues.")
 
         parser = ResidueCombinePairs(self.basic)
         parser.read_file()
