@@ -322,8 +322,10 @@ class UniverseInitializer:
         """
         # Ensure the start time is non-negative
         self.basic['begin_time'] = max(self.basic['begin_time'], 0.0)
+        logging.info(f"User specified analysis of trajectory starting from {self.basic['begin_time']} ps")
         # Ensure the end time does not surpass the final moment of the trajectory
         self.basic['end_time'] = min(self.basic['end_time'], self.basic['md_traj'].trajectory[-1].time)
+        logging.info(f"User-specified trajectory analysis ends at {self.basic['end_time']} ps")
         # Ensure the time step is at least the minimum time step
         self.basic['freq_step'] = max(self.basic["time_resolution_min"], self.basic['freq_step'])
         # Throw an exception if the time step exceeds the end time
