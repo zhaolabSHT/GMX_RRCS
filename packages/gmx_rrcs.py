@@ -90,6 +90,7 @@ class ConfigParser:
         return vars(args)
     
 
+@timing_decorator
 class ResidueCombinePairs:
     def __init__(self, basic_settings):
         """
@@ -591,7 +592,6 @@ class DataVisualizer:
         self.write_output()
 
 
-@timing_decorator
 class RRCSAnalyzer:
     def __init__(self):
         # self.basic_settings = basic_settings
@@ -852,6 +852,7 @@ class RRCSAnalyzer:
                     rrcs_score = 0
                 frame_rrcs.append((f"{chain_id}:{index_i}{res_i}", f"{chain_id}:{index_j}{res_j}", rrcs_score))
         return frame_count, frame_rrcs
+
 
     @timing_decorator
     def analyze_contacts(self, basic_settings):
