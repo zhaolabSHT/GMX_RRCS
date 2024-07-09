@@ -54,7 +54,7 @@ class ConfigParser:
         
         # define optional parameter
         self.parser.add_argument('--res_file', type=str, default='',
-                                 help="Path to residue information file")
+                                 help="Path to the file containing residue pair indices.")
         self.parser.add_argument('--radius_min', type=float, default=3.23,
                                  help="Minimum distance threshold in Ångström, default is 3.23")
         self.parser.add_argument('--radius_max', type=float, default=4.63,

@@ -28,7 +28,7 @@ optional arguments:
   --top_file TOP_FILE   Topology file path (required)
   --traj_file TRAJ_FILE
                         Trajectory file path (required)
-  --res_file RES_FILE   Path to residue information file
+  --res_file RES_FILE   Path to residue information filePath to the file containing residue pair indices.
   --radius_min RADIUS_MIN
                         Minimum distance threshold in Ångström, default is 3.23
   --radius_max RADIUS_MAX
@@ -52,8 +52,56 @@ optional arguments:
                         Print the elapsed time every N frames, default is 1000 frames.
 ```
 
+## Example Usage
+```bash
+gmx_rrcs --top_file your_topology_file --traj_file your_trajectory_file --res_file your_residue_pair_indices_file  --output_file your_output_file --output_file your_output_dir
+```
 
-# 文件格式
-我们采用MDAnalysis库来读取处理GROMACS轨迹，因此--top_file和--traj_file参数接收的是MDAnalysis库允许接收的文件格式。因此，你需要确认你的输入文件是否符合MDAnalysis库的格式要求。在我们的测试下在读取".tpr"文件有时候会出错，因此我们建议你使用".pdb"文件格式作为--top_file参数的输入拓扑文件。轨迹文件建议使用".xtc"文件格式。我们强烈建议你在运行gmx_rrcs之前先检查你输入文件中的蛋白是否完整，轨迹是否正确。
 
+## File Formats
+### Topology and Trajectory Files
+We use the MDAnalysis library to read and process GROMACS trajectories. Therefore, the --top_file and --traj_file parameters accept file formats supported by MDAnalysis. Ensure that your input files conform to MDAnalysis format requirements. In our tests, there have been occasional issues with reading .tpr files, so we recommend using .pdb or .gro files as the input topology files for the --top_file parameter. For trajectory files, we recommend using the .xtc format. It is crucial to check the completeness and correctness of your protein and trajectory in the input files before running gmx_rrcs to ensure accurate results.
+
+### Residue Pair Indices File
+This file format is custom-defined. Each line specifies a pair of residue indices separated by the $ symbol, where the content before $ is the first member, and the content after $ is the second member. A simple example is as follows:
+```
+15 $ 28         ; This line defines a residue pair (15, 28), where the first member is residue 15 and the second member is residue 28.
+```
+The content after the ; character is considered a comment and will be ignored during parsing.
+
+Multiple residue pairs can be specified on the same line by separating them with spaces:
+```
+15 16 $ 28      ; This line defines two residue pairs: (15, 28) and (16, 28).
+```
+
+Similarly, multiple residues can be specified for the second member:
+```
+15 $ 28 29      ; This line defines residue pairs (15, 28) and (15, 29).
+```
+
+Both members can specify multiple residues:
+```
+15 16 $ 28 29   ; This line defines residue pairs (15, 28), (15, 29), (16, 28), and (16, 29).
+```
+
+You can also specify a range of residues using the - symbol:
+```
+15-17 20 $ 28   ; This line defines residue pairs (15, 28), (16, 28), (17, 28), and (20, 28).
+```
+
+If a line does not contain the $ symbol, the residues on that line will pair with each other:
+```
+15 28 40        ; This line defines residue pairs (15, 28), (15, 40), and (28, 40).
+```
+
+The residue pair indices file allows multiple lines to define residue pairs:
+```
+15 $ 28
+32 35 $ 10
+46 $ 55 16
+78 58 $ 98 61
+99-102 $ 293-299
+```
+Regardless of the number of lines, they will all be merged into a single list of residue pairs.
+For GMX_RRCS, the residue pair indices file is not a required parameter. If you do not provide this file, GMX_RRCS will automatically generate a list of all possible residue pairs in the protein, which will significantly increase computation time. Hence, it is generally not recommended.
 
