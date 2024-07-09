@@ -894,6 +894,7 @@ class RRCSAnalyzer:
             args.append((frame_index, info_first, info_second, basic_settings, md_traj))
 
         n_cpus = basic_settings['num_processes']
+        logging.info(f"Will use {n_cpus} cores for parallel computing.")
         if (n_cpus == None) or (n_cpus > 1):
             # Use the process pool executor for parallel processing
             with ProcessPoolExecutor(max_workers=n_cpus) as executor:
