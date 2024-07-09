@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import itertools
 import logging
 import argparse
@@ -74,8 +75,12 @@ class ConfigParser:
                                  help="Print the elapsed time every N frames, default is 1000 frames.")
 
 
-    def parse_arguments(self) -> Dict[str, Union[float, str, bool, int]]:
+    def parse_arguments(self):
         """Parses command line arguments and returns them as a dictionary."""
+        if len(sys.argv) == 1:
+            log_error("InvalidParameter", "No arguments provided. Displaying help:\n")
+            self.parser.print_help()
+            sys.exit(1)
         args = self.parser.parse_args()
         return vars(args)
     
