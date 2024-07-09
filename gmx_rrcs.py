@@ -308,7 +308,7 @@ class UniverseInitializer:
             chains.append((chain.segindex, chain.segid))
         self.basic['traj_chains'] = chains
 
-    def check(self):
+    def run(self):
         """
         Conducts a series of checks to ensure all prerequisites for the program's execution are met.
         
@@ -613,6 +613,7 @@ class RRCSAnalyzer:
             return np.array([])
 
 
+    # @jit(nopython=True)
     @staticmethod
     def prefilter_contacts(coord_i, coord_j):
         """
@@ -635,7 +636,7 @@ class RRCSAnalyzer:
         # diff shape: (m, n, 3)
         diff = np.abs(coord_i[:, np.newaxis, :] - coord_j[np.newaxis, :, :])
 
-        return np.any(np.prod(diff < ATOM_DISTANCE_THRESHOLD, axis=2))
+        return np.any(np.all(diff < ATOM_DISTANCE_THRESHOLD, axis=2))
 
 
     @staticmethod
@@ -806,20 +807,35 @@ class RRCSAnalyzer:
                 frame_rrcs.append((f"{chain_id}:{index_i}{res_i}", f"{chain_id}:{index_j}{res_j}", rrcs_score))
         return frame_count, frame_rrcs
 
-
     @timing_decorator
-    def analyze_contacts(self, basic_settings, member_first, member_second):
+    def analyze_contacts(self, basic_settings):
         """
-        Main function to iterate through trajectory frames, calculate residue-residue contacts, and their scores in parallel.
+        Analyze residue-residue contacts in molecular dynamics simulation trajectories.
+        
+        Parameters:
+        basic_settings: dict
+            Configuration dictionary containing simulation trajectory and analysis parameters.
+            
+        Returns:
+        all_frame_rrcs: dict
+            Dictionary of residue-residue contact information for all frames.
         """
+        # Start timing
         global_start = timeit.default_timer()
 
+        # Initialize dictionary to store residue-residue contact information for all frames
         all_frame_rrcs = {}
+
+        # Obtain the molecular dynamics simulation trajectory
         md_traj = basic_settings['md_traj']
 
+        # Calculate the start index, end index, and step index of the analysis time period based on the configuration
         begin_time_index = int(basic_settings['begin_time'] / basic_settings['time_resolution_min'])
         end_time_index = int(basic_settings['end_time'] / basic_settings['time_resolution_min'])
         frequency_step_index = int(basic_settings['freq_step'] / basic_settings['time_resolution_min'])
+
+        # Load the residues of interest based on the residue pair configuration
+        member_first, member_second = self.load_residues(basic_settings['res_pairs'])
 
         info_first = self.get_residue_info(basic_settings['md_traj'], basic_settings['traj_chains'], member_first)
         info_second = self.get_residue_info(basic_settings['md_traj'], basic_settings['traj_chains'], member_second)
@@ -856,12 +872,17 @@ class RRCSAnalyzer:
                 all_frame_rrcs[frame_count] = frame_rrcs
                 # Prints the elapsed time at specified calculation steps.
                 print_nstep_time(frame_count, global_start, basic_settings['print_freq'])
+        else:
+            log_error("ValueTypeError", "The entered integer is invalid. Please enter a valid integer.")
         return all_frame_rrcs
 
 
 def main():
     """
-    Main function to execute the analysis and plotting.
+    The entry point of the program, responsible for executing the analysis and plotting process.
+    
+    This function first parses the configuration file to obtain basic configuration information,
+    then initializes the universe, analyzes the contact data, and finally performs data visualization.
     """
     # Parse the configuration file and get the basic configuration information
     config_parser = ConfigParser()
@@ -869,13 +890,13 @@ def main():
 
     # Initialize the universe based on the basic configuration, and perform initial checks
     initializer = UniverseInitializer(basic_config)
-    initializer.check()
+    initializer.run()
 
-    basic_config = initializer.basic
+    # Create an analyzer instance to analyze the contact data in the simulation
     analyzer = RRCSAnalyzer()
-    member_first, member_second = analyzer.load_residues(basic_config['res_pairs'])
-    all_frame_rrcs = analyzer.analyze_contacts(basic_config, member_first, member_second)
+    all_frame_rrcs = analyzer.analyze_contacts(initializer.basic)
 
+    # Create a data visualizer instance and perform data visualization
     DataVisualizer(initializer.basic, all_frame_rrcs).run()
 
 
