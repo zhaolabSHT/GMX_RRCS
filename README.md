@@ -5,9 +5,12 @@ The gmx_rrcs script is designed to calculate the residues-residues contact score
 
 
 ## Install
+To install GMX_RRCS, simply run:
 ```bash
 pip install gmx-rrcs
 ```
+Requires Python version >= 3.9
+
 
 ## Usage
 For help information, execute the script with the following command:
@@ -104,4 +107,15 @@ The residue pair indices file allows multiple lines to define residue pairs:
 ```
 Regardless of the number of lines, they will all be merged into a single list of residue pairs.
 For GMX_RRCS, the residue pair indices file is not a required parameter. If you do not provide this file, GMX_RRCS will automatically generate a list of all possible residue pairs in the protein, which will significantly increase computation time. Hence, it is generally not recommended.
+
+
+## Suggested Operating Environment
+We recommend running GMX_RRCS on a Linux system, as the installation and operation are very convenient. Although we have not tested on the Mac system, we cannot guarantee compatibility, but you can try running it on that system.
+
+For the Windows system, we have tested and confirmed that GMX_RRCS can run normally. However, after installation, you may need to manually add the path of the executable file to the system's environment variables, or use the absolute path to run the program from the command line. For example, in my test environment：
+
+```cmd
+c:\users\mycomputer\appdata\roaming\python\python311\scripts\gmx_rrcs.exe -h
+```
+
 
