@@ -445,7 +445,7 @@ class DataVisualizer:
             # Iterate over the RRCS list, each entry is a tuple containing residue identifiers and an RRCS score
             for res1, res2, rrcs_score in rrcs_list:
                 outlines.append((frame, res1, res2, rrcs_score))
-                if rrcs_score >= self.filter_threshold:
+                if rrcs_score > self.filter_threshold:
                     filter_outlines.append((frame, res1, res2, rrcs_score))
         outlines = self.pretty_print_table(outlines)
         filter_outlines = self.pretty_print_table(filter_outlines)
@@ -891,7 +891,15 @@ class RRCSAnalyzer:
                 + 'While we will not modify the step size, this will require a long computation time.')
         else:
             logging.info(f'Step size is {step_index}, Computation steps are {index_multiple}.')
-        return step_index
+        
+        if begin_index < 0:
+            begin_index = 0
+            logging.warning('Initial index is less than 0, reset to 0.')
+        if step_index <= 0:
+            step_index = 1
+            logging.warning('Step size is less than 1, reset to 1.')
+
+        return begin_index, step_index
 
     @timing_decorator
     def analyze_contacts(self, basic_settings):
@@ -921,7 +929,7 @@ class RRCSAnalyzer:
         begin_time_index = int((basic_settings['begin_time'] - basic_settings['first_frame_time']) / step_time)
         end_time_index = int((basic_settings['end_time'] - basic_settings['first_frame_time']) / step_time)
         frequency_step_index = int(basic_settings['freq_step'] / step_time)
-        frequency_step_index = self.check_time_index(begin_time_index, end_time_index, frequency_step_index)
+        begin_time_index, frequency_step_index = self.check_time_index(begin_time_index, end_time_index, frequency_step_index)
 
         # Load the residues of interest based on the residue pair configuration
         member_first, member_second = self.load_residues(basic_settings['res_pairs'])
