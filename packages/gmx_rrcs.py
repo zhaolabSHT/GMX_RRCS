@@ -152,9 +152,6 @@ class ResidueCombinePairs:
         elif '$' in line:
             return self.parse_stand_line(line)
         else:
-            # If the line does not meet the above two conditions and contains illegal characters, log an error
-            print(line)
-            print('-'*100)
             log_error(
                 "InputFileError", 
                 "The --res_file you entered contains illegal characters, please ensure that your delimiter is '$'."
