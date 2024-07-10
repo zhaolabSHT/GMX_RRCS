@@ -118,4 +118,3 @@ For the Windows system, we have tested and confirmed that GMX_RRCS can run norma
 c:\users\mycomputer\appdata\roaming\python\python311\scripts\gmx_rrcs.exe -h
 ```
 
-
