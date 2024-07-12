@@ -716,11 +716,14 @@ class RRCSAnalyzer:
         # Apply conditions using NumPy's where function
         scores = np.where(
             distances_matrix >= d_max_squared,
+            # When distance is greater than or equal to max squared distance, score is 0
             0.0,
             np.where(
                 distances_matrix <= d_min_squared,
+                # When distance is less than or equal to min squared distance, score is 1
                 1.0,
-                1.0 - ((distances_matrix - d_min_squared) / (d_max_squared - d_min_squared))
+                # Calculate score between the two distances
+                (d_max_squared - distances_matrix) / (d_max_squared - d_min_squared)
             )
         )
 
