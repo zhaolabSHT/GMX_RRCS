@@ -999,17 +999,16 @@ def main():
     """
     The main function of the program, responsible for executing the entire analysis and visualization process.
     """
+    global_start = timeit.default_timer()
     run_pipline()
+    elapsed = timeit.default_timer() - global_start
+    logging.info(
+        "The GMX_RRCS program has finished running, with a total elapsed time of "
+        + colored(f"{elapsed:.6f} ", 'green')
+        + "seconds."
+        )
 
 
 if __name__ == "__main__":
 
-    # global_start = timeit.default_timer()
     main()
-    # elapsed = timeit.default_timer() - global_start
-    # logging.info(
-    #     "The GMX_RRCS program has finished running, with a total elapsed time of "
-    #     + colored(f"{elapsed:.6f} ", 'green')
-    #     + "seconds."
-    #     )
-
