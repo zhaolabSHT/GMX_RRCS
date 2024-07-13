@@ -1,4 +1,9 @@
+# -*- coding: utf-8 -*-
+
+import sys
 from MDAnalysis import Universe
+
+sys.setdefaultencoding('utf-8')
 
 md_traj = Universe('..\examples\md0.pdb', '..\examples\md0.xtc')
 # print(md_traj)

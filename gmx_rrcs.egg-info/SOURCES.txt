@@ -10,6 +10,7 @@ gmx_rrcs.egg-info/top_level.txt
 packages/__init__.py
 packages/constants.py
 packages/gmx_rrcs.py
+packages/gmxout2csv.py
 packages/utilities.py
 tests/test.py
 tests/test_chardet.py

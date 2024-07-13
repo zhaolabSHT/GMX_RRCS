@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 The `utilities.py` module integrates essential logging, performance profiling, 
 and exception handling features aimed at enhancing code robustness and efficiency.

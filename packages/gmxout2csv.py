@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 This script converts text files output by GMX_RRCS to CSV format for easier subsequent processing,
 and checks that all rows have the same number of elements.
