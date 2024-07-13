@@ -34,6 +34,12 @@ STEP_INDEX_LOWER_LIMIT = 5
 # Warning threshold for excessive trajectory computation frames
 STEP_INDEX_WARN_LIMIT = 10000
 
+# the expression used to exclude all hydrogen atom names
+prefixs = ['', '1', '2', '3']
+AND_NOT_H_ATOMS = ""
+for prefix in prefixs:
+    AND_NOT_H_ATOMS += f"and not name {prefix}H* "
+
 
 # Header description of the output file
 OUTPUT_HEADER = """

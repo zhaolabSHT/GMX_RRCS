@@ -605,7 +605,7 @@ class RRCSAnalyzer:
         """
         Get residue names from the universe.
         """
-        atoms = list(protein.select_atoms(f"resid {index_i} and not name H* and segindex {chain_ix}").ids - 1)
+        atoms = list(protein.select_atoms(f"record_type ATOM and resid {index_i} and segindex {chain_ix} {AND_NOT_H_ATOMS}").ids - 1)
         if atoms:
             res_name = THREE_TO_ONE_LETTER.get(protein.atoms[atoms[0]].resname, 'X')
         else:
@@ -746,7 +746,7 @@ class RRCSAnalyzer:
             _id = 'A' if _id == 'SYSTEM' else _id
             pair_residue = defaultdict(dict)
             for resid in residues:
-                atom_ids = list(protein.select_atoms(f"resid {resid} and not name H* and segindex {_ix}").ids - 1)
+                atom_ids = list(protein.select_atoms(f"record_type ATOM and resid {resid} and segindex {_ix} {AND_NOT_H_ATOMS}").ids - 1)
                 res_name = ''
                 pair_atom = []
                 for atom_id in atom_ids:
@@ -835,6 +835,8 @@ class RRCSAnalyzer:
 
         frame_list_first = []
         frame_list_second = []
+        count = 0
+        name = ''
         # Iterate over all chains and residues information in the first model
         for chain_ix, chain_id in info_first.keys():
             info_res_first = info_first[(chain_ix, chain_id)]
@@ -858,8 +860,15 @@ class RRCSAnalyzer:
                     # print(coord_j, f"{index_j}{res_j}")
                     # print('-'*20)
                     continue
-                chain_list_first.append(coord_i.tolist())
-                chain_list_second.append(coord_j.tolist())
+                chain_list_first.append(coord_i)
+                chain_list_second.append(coord_j)
+                if coord_i.shape[0] > count:
+                    count = coord_i.shape[0]
+                    name = f"{chain_id}:{index_i}{res_i}"
+                if coord_j.shape[0] > count:
+                    count = coord_j.shape[0]
+                    name = f"{chain_id}:{index_j}{res_j}"
+                # print(coord_j.shape[0], f"{chain_id}:{index_j}{res_j}")
                 # print(chain_list_first)
                 # print(coord_i.shape)
                 # print(coord_j)
@@ -874,11 +883,13 @@ class RRCSAnalyzer:
                 # else:
                 #     rrcs_score = 0
                 # frame_rrcs.append((f"{chain_id}:{index_i}{res_i}", f"{chain_id}:{index_j}{res_j}", rrcs_score))
+                # print(coord_i.shape[0], f"{chain_id}:{index_i}{res_i}", [a[0] for a in info_i])
+                print(f"{chain_id}:{index_i}{res_i}", [a[0] for a in info_i])
             # print(np.array(chain_list_first))
             # print(np.array(chain_list_first).shape)
             frame_list_first.append(chain_list_first)
             frame_list_second.append(chain_list_second)
-        print(frame_list_first)
+        # print(count, name)
         frame_array_first = np.array(frame_list_first)
         frame_array_second = np.array(frame_list_second)
         # print(frame_array_first)
