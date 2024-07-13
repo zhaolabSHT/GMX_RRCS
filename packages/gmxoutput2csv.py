@@ -4,6 +4,7 @@ and checks that all rows have the same number of elements.
 """
 
 import sys
+import argparse
 from collections import Counter
 
 def transform_text_to_csv(txt_file):
@@ -42,7 +43,7 @@ def check_row_consistency(n_elements):
         bool: True if all rows have the same number of elements, False otherwise.
     """
     n_elements_per_line = [n for n, _ in n_elements]
-    stand = sorted(Counter(n_elements_per_line).tems(), key=lambda x: x[1], reverse=True)[0][0]
+    stand = sorted(Counter(n_elements_per_line).items(), key=lambda x: x[1], reverse=True)[0][0]
     if len(set(n_elements_per_line)) > 1:
         for n_elements, line_number in n_elements:
             if n_elements != stand:
@@ -61,19 +62,42 @@ def write_to_csv(outlines, csv_file):
     with open(csv_file, 'w') as file:
         file.writelines([f"{line}\n" for line in outlines])
 
-def main():
-    if len(sys.argv) != 3:
-        print("Usage: python script.py <input_txt_file> <output_csv_file>")
-        sys.exit(1)
+def parase_arguments():
+    """
+    Parse the command line arguments.
     
-    txt_file = sys.argv[1]
-    csv_file = sys.argv[2]
+    This function uses the argparse module to define and parse the command line arguments needed by the program.
+    It includes the input file path and the output file path, both of which are optional.
+    
+    Returns:
+        The parsed command line arguments as a Namespace object.
+    """
+    parser = argparse.ArgumentParser(description="Transform GMX_RRCS output file to CSV format.")
+    parser.add_argument('-i', '--input', type=str, help='Path to the input text file.')
+    parser.add_argument('-o', '--output', type=str, help='Path to the output csv file.')
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+    args = parser.parse_args()
+    return args
+
+
+def main():
+    # if len(sys.argv) != 3:
+    #     print("Usage: python script.py <input_txt_file> <output_csv_file>")
+    #     sys.exit(1)
+    
+    args = parase_arguments()
+    
+    txt_file = args.input
+    csv_file = args.output
     
     outlines, n_elements = transform_text_to_csv(txt_file)
     if check_row_consistency(n_elements):
         write_to_csv(outlines, csv_file)
     else:
         print("Data not written to CSV due to inconsistency in row lengths.")
+
 
 if __name__ == '__main__':
     main()
