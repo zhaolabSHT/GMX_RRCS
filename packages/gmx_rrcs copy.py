@@ -648,7 +648,7 @@ class RRCSAnalyzer:
             adjest_coord = [
                 positions[atom_id] * atom_occupancy
                 for atom_name, atom_id, atom_occupancy in residue
-                if not (is_neighbor and (atom_name in MAIN_CHAINS_ATOMS))
+                if not (is_neighbor and atom_name in MAIN_CHAINS_ATOMS)
             ]
             return np.array(adjest_coord)
         except (TypeError, ValueError) as e:
@@ -833,14 +833,10 @@ class RRCSAnalyzer:
         # Initialize the list for RRCS values of the current frame
         frame_rrcs = []
 
-        frame_list_first = []
-        frame_list_second = []
         # Iterate over all chains and residues information in the first model
         for chain_ix, chain_id in info_first.keys():
             info_res_first = info_first[(chain_ix, chain_id)]
             info_res_second = info_second[(chain_ix, chain_id)]
-            chain_list_first = []
-            chain_list_second = []
             # Iterate over the residue pairs defined in settings
             for index_i, index_j in settings['res_pairs']:
                 res_i = self.get_residue_name(protein, index_i, chain_ix)
@@ -852,40 +848,17 @@ class RRCSAnalyzer:
                 # Adjust atom coordinates based on occupancy
                 coord_i = self.adjest_atom_coordinates(is_adjacent, info_i, frame_step)
                 coord_j = self.adjest_atom_coordinates(is_adjacent, info_j, frame_step)
-                # print(coord_i)
-                if (coord_i.size == 0) or (coord_j.size == 0):
-                    # print(coord_i, f"{index_i}{res_i}")
-                    # print(coord_j, f"{index_j}{res_j}")
-                    # print('-'*20)
-                    continue
-                chain_list_first.append(coord_i.tolist())
-                chain_list_second.append(coord_j.tolist())
-                # print(chain_list_first)
-                # print(coord_i.shape)
-                # print(coord_j)
-                # print(coord_j.shape)
-                # # Pre-filter contacts
-                # if self.prefilter_contacts(coord_i, coord_j):
-                #     # Calculate distance between residue pairs
-                #     dist = self.get_distances(coord_i, coord_j)
-                #     radius_min = settings['radius_min']
-                #     radius_max = settings['radius_max']
-                #     rrcs_score = self.compute_rrcs_jit(dist, radius_max, radius_min)
-                # else:
-                #     rrcs_score = 0
-                # frame_rrcs.append((f"{chain_id}:{index_i}{res_i}", f"{chain_id}:{index_j}{res_j}", rrcs_score))
-            # print(np.array(chain_list_first))
-            # print(np.array(chain_list_first).shape)
-            frame_list_first.append(chain_list_first)
-            frame_list_second.append(chain_list_second)
-        print(frame_list_first)
-        frame_array_first = np.array(frame_list_first)
-        frame_array_second = np.array(frame_list_second)
-        # print(frame_array_first)
-        # print(frame_array_first.shape)
-        # print(frame_array_second)
-        # print(frame_array_second.shape)
-        
+
+                # Pre-filter contacts
+                if self.prefilter_contacts(coord_i, coord_j):
+                    # Calculate distance between residue pairs
+                    dist = self.get_distances(coord_i, coord_j)
+                    radius_min = settings['radius_min']
+                    radius_max = settings['radius_max']
+                    rrcs_score = self.compute_rrcs_jit(dist, radius_max, radius_min)
+                else:
+                    rrcs_score = 0
+                frame_rrcs.append((f"{chain_id}:{index_i}{res_i}", f"{chain_id}:{index_j}{res_j}", rrcs_score))
         return frame_count, frame_rrcs
 
     @staticmethod
