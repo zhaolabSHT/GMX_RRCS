@@ -35,6 +35,9 @@ except:
         # attempt to import directly from the current directory.
         from utilities import *
         from constants import *
+finally:
+    from utilities import *
+    from constants import *
 
 
 # configure logging
@@ -55,10 +58,6 @@ class ConfigParser:
         # define optional parameter
         self.parser.add_argument('--res_file', type=str, default='',
                                  help="Path to the file containing residue pair indices.")
-        self.parser.add_argument('--radius_min', type=float, default=3.23,
-                                 help="Minimum distance threshold in Ångström, default is 3.23")
-        self.parser.add_argument('--radius_max', type=float, default=4.63,
-                                 help="Maximum distance threshold in Ångström, default is 4.63")
         self.parser.add_argument('--output_dir', type=str, default='',
                                  help="Directory path where output files will be saved. If not specified, the current directory will be used.")
         self.parser.add_argument('--output_file', type=str, default='RRCS_output.txt',
@@ -74,10 +73,14 @@ class ConfigParser:
         self.parser.add_argument('--filter_threshold', type=float, default=3.0,
                                  help='Choose whether to output the high-scoring results that have been filtered, default is 3.0.')
         self.parser.add_argument('--num_processes', type=int, default=None,
-                             help="Number of processes for parallel execution."
+                                 help="Number of processes for parallel execution."
                                   "If None, use all available CPU cores. Default is None.")
         self.parser.add_argument('--print_freq', type=int, default=1000,
                                  help="Print the elapsed time every N frames, default is 1000 frames.")
+        self.parser.add_argument('--radius_min', type=float, default=3.23,
+                                 help="Minimum distance threshold in Ångström, default is 3.23")
+        self.parser.add_argument('--radius_max', type=float, default=4.63,
+                                 help="Maximum distance threshold in Ångström, default is 4.63")
 
 
     def parse_arguments(self):
@@ -88,7 +91,7 @@ class ConfigParser:
             sys.exit(1)
         args = self.parser.parse_args()
         return vars(args)
-    
+ 
 
 @timing_decorator
 class ResidueCombinePairs:
@@ -605,7 +608,7 @@ class RRCSAnalyzer:
         """
         Get residue names from the universe.
         """
-        atoms = list(protein.select_atoms(f"record_type ATOM and resid {index_i} and segindex {chain_ix} {AND_NOT_H_ATOMS}").ids - 1)
+        atoms = list(protein.select_atoms(f"resid {index_i} and segindex {chain_ix} {AND_NOT_H_ATOMS}").ids - 1)
         if atoms:
             res_name = THREE_TO_ONE_LETTER.get(protein.atoms[atoms[0]].resname, 'X')
         else:
@@ -746,7 +749,7 @@ class RRCSAnalyzer:
             _id = 'A' if _id == 'SYSTEM' else _id
             pair_residue = defaultdict(dict)
             for resid in residues:
-                atom_ids = list(protein.select_atoms(f"record_type ATOM and resid {resid} and segindex {_ix} {AND_NOT_H_ATOMS}").ids - 1)
+                atom_ids = list(protein.select_atoms(f"resid {resid} and segindex {_ix} {AND_NOT_H_ATOMS}").ids - 1)
                 res_name = ''
                 pair_atom = []
                 for atom_id in atom_ids:
